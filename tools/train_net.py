@@ -395,7 +395,7 @@ def eval_epoch(
     val_meter.iter_tic()
 
     for cur_iter, (inputs, labels, index, meta) in enumerate(val_loader):
-        times = 0.0
+        time = 0.0
         meta = {}
         if cfg.NUM_GPUS:
             # Transferthe data to the current GPU device.
