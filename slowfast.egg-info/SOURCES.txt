@@ -18,6 +18,9 @@ slowfast/datasets/build.py
 slowfast/datasets/charades.py
 slowfast/datasets/cv2_transform.py
 slowfast/datasets/decoder.py
+slowfast/datasets/epickitchens.py
+slowfast/datasets/epickitchens_record.py
+slowfast/datasets/frame_loader.py
 slowfast/datasets/imagenet.py
 slowfast/datasets/kinetics.py
 slowfast/datasets/loader.py

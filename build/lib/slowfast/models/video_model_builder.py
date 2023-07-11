@@ -839,7 +839,10 @@ class MViT(nn.Module):
         self.H = cfg.DATA.TRAIN_CROP_SIZE // self.patch_stride[1]
         self.W = cfg.DATA.TRAIN_CROP_SIZE // self.patch_stride[2]
         # Prepare output.
-        num_classes = cfg.MODEL.NUM_CLASSES
+        if cfg.TRAIN.DATASET == "Epickitchens":
+            num_classes = [8, 116]  # add epic-kitchens, [verb,noun]=[97,300]
+        else:
+            num_classes = cfg.MODEL.NUM_CLASSES
         embed_dim = cfg.MVIT.EMBED_DIM
         # Prepare backbone
         num_heads = cfg.MVIT.NUM_HEADS

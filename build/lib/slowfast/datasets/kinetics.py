@@ -39,7 +39,7 @@ class Kinetics(torch.utils.data.Dataset):
     bottom crop if the height is larger than the width.
     """
 
-    def __init__(self, cfg, mode, num_retries=100):
+    def __init__(self, cfg, mode, num_retries=10):
         """
         Construct the Kinetics video loader with a given csv file. The format of
         the csv file is:
@@ -260,7 +260,7 @@ class Kinetics(torch.utils.data.Dataset):
             else 1
         )
         min_scale, max_scale, crop_size = [min_scale], [max_scale], [crop_size]
-        if len(min_scale) < num_decode:
+        if len(min_scale) < num_decode: 
             min_scale += [self.cfg.DATA.TRAIN_JITTER_SCALES[0]] * (
                 num_decode - len(min_scale)
             )

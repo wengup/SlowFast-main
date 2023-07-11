@@ -16,7 +16,7 @@ import slowfast.visualization.tensorboard_vis as tb
 from slowfast.datasets import loader
 from slowfast.models import build_model
 from slowfast.utils.env import pathmgr
-from slowfast.utils.meters import AVAMeter, TestMeter
+from slowfast.utils.meters import AVAMeter, TestMeter, EPICTestMeter
 
 logger = logging.get_logger(__name__)
 
@@ -46,7 +46,7 @@ def perform_test(test_loader, model, test_meter, cfg, writer=None):
     model.eval()
     test_meter.iter_tic()
 
-    for cur_iter, (inputs, labels, video_idx, time, meta) in enumerate(test_loader):
+    for cur_iter, (inputs, labels, video_idx, meta) in enumerate(test_loader): # time,
 
         if cfg.NUM_GPUS:
             # Transfer the data to the current GPU device.
@@ -56,7 +56,7 @@ def perform_test(test_loader, model, test_meter, cfg, writer=None):
             else:
                 inputs = inputs.cuda(non_blocking=True)
             # Transfer the data to the current GPU device.
-            labels = labels.cuda()
+            labels = labels if isinstance(labels, (dict,)) else labels.cuda()
             video_idx = video_idx.cuda()
             for key, val in meta.items():
                 if isinstance(val, (list,)):
@@ -116,22 +116,51 @@ def perform_test(test_loader, model, test_meter, cfg, writer=None):
         else:
             # Perform the forward pass.
             preds = model(inputs)
-        # Gather all the predictions across all the devices to perform ensemble.
-        if cfg.NUM_GPUS > 1:
-            preds, labels, video_idx = du.all_gather([preds, labels, video_idx])
-        if cfg.NUM_GPUS:
-            preds = preds.cpu()
-            labels = labels.cpu()
-            video_idx = video_idx.cpu()
+        # perform epic-kitchens
+        if isinstance(labels, (dict,)):
+            # Gather all the predictions across all the devices to perform ensemble.
+            if cfg.NUM_GPUS > 1:
+                verb_preds, verb_labels, video_idx = du.all_gather(
+                    [preds[0], labels['verb'].cuda(), video_idx]
+                )
 
-        test_meter.iter_toc()
-
-        if not cfg.VIS_MASK.ENABLE:
+                noun_preds, noun_labels, video_idx = du.all_gather(
+                    [preds[1], labels['noun'].cuda(), video_idx]
+                )
+                meta = du.all_gather_unaligned(meta)
+                metadata = {'narration_id': []}
+                for i in range(len(meta)):
+                    metadata['narration_id'].extend(meta[i]['narration_id'].cpu().numpy().tolist())  
+            else:
+                metadata = meta
+                verb_preds, verb_labels, video_idx = preds[0], labels['verb'], video_idx
+                noun_preds, noun_labels, video_idx = preds[1], labels['noun'], video_idx
+            test_meter.iter_toc()
             # Update and log stats.
             test_meter.update_stats(
-                preds.detach(), labels.detach(), video_idx.detach()
+                (verb_preds.detach().cpu(), noun_preds.detach().cpu()),
+                (verb_labels.detach().cpu(), noun_labels.detach().cpu()),
+                metadata,
+                video_idx.detach().cpu(),
             )
-        test_meter.log_iter_stats(cur_iter)
+            test_meter.log_iter_stats(cur_iter)
+        else:
+            # Gather all the predictions across all the devices to perform ensemble.
+            if cfg.NUM_GPUS > 1:
+                preds, labels, video_idx = du.all_gather([preds, labels, video_idx])
+            if cfg.NUM_GPUS:
+                preds = preds.cpu()
+                labels = labels.cpu()
+                video_idx = video_idx.cpu()
+
+            test_meter.iter_toc()
+
+            if not cfg.VIS_MASK.ENABLE:
+                # Update and log stats.
+                test_meter.update_stats(
+                    preds.detach(), labels.detach(), video_idx.detach()
+                )
+            test_meter.log_iter_stats(cur_iter)
 
         test_meter.iter_tic()
 
@@ -197,8 +226,8 @@ def test(cfg):
             #     model, cfg, use_train_input=False
             # )
 
-        # if du.is_master_proc() and cfg.LOG_MODEL_INFO:
-        #     misc.log_model_info(model, cfg, use_train_input=False)
+        # if du.is_master_elproc() and cfg.LOG_MODEL_INFO:
+        #     misc.log_mod_info(model, cfg, use_train_input=False)
         if (
             cfg.TASK == "ssl"
             and cfg.MODEL.MODEL_NAME == "ContrastiveModel"
@@ -225,18 +254,27 @@ def test(cfg):
                 % (cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS)
                 == 0
             )
+            if cfg.TEST.DATASET == 'Epickitchens':  # modified July03,2023,20:31pm
+                test_meter = EPICTestMeter(
+                    len(test_loader.dataset)
+                    // (cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS),
+                    cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS,
+                    cfg.MODEL.NUM_CLASSES,
+                    len(test_loader),
+                )
+            else:
             # Create meters for multi-view testing.
-            test_meter = TestMeter(
-                test_loader.dataset.num_videos
-                // (cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS),
-                cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS,
-                cfg.MODEL.NUM_CLASSES
-                if not cfg.TASK == "ssl"
-                else cfg.CONTRASTIVE.NUM_CLASSES_DOWNSTREAM,
-                len(test_loader),
-                cfg.DATA.MULTI_LABEL,
-                cfg.DATA.ENSEMBLE_METHOD,
-            )
+                test_meter = TestMeter(
+                    test_loader.dataset.num_videos
+                    // (cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS),
+                    cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS,
+                    cfg.MODEL.NUM_CLASSES
+                    if not cfg.TASK == "ssl"
+                    else cfg.CONTRASTIVE.NUM_CLASSES_DOWNSTREAM,
+                    len(test_loader),
+                    cfg.DATA.MULTI_LABEL,
+                    cfg.DATA.ENSEMBLE_METHOD,
+                )
 
         # Set up writer for logging to Tensorboard format.
         if cfg.TENSORBOARD.ENABLE and du.is_master_proc(

@@ -43,18 +43,19 @@ def parse_args():
     parser.add_argument(
         "--init_method",
         help="Initialization method, includes TCP or shared file-system",
-        default="tcp://localhost:9999",
+        default="tcp://localhost:9789",
         type=str,
     )
     parser.add_argument(
         "--cfg",
-        dest="cfg_files",
+        dest="cfg_file",
         help="Path to the config files",
         default=["configs/Kinetics/SLOWFAST_4x16_R50.yaml"],
-        nargs="+",
+        # nargs="+",
+        type=str,
     )
     parser.add_argument(
-        "--opts",
+        "opts", # "--opts"
         help="See slowfast/config/defaults.py for all options",
         default=None,
         nargs=argparse.REMAINDER,
@@ -74,8 +75,8 @@ def load_config(args, path_to_config=None):
     # Setup cfg.
     cfg = get_cfg()
     # Load config from cfg.
-    if path_to_config is not None:
-        cfg.merge_from_file(path_to_config)
+    if args.cfg_file is not None:
+        cfg.merge_from_file(args.cfg_file) # path_to_config
     # Load config from command line, overwrite config from opts.
     if args.opts is not None:
         cfg.merge_from_list(args.opts)

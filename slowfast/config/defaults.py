@@ -148,7 +148,7 @@ _C.TRAIN.EVAL_PERIOD = 10
 _C.TRAIN.CHECKPOINT_PERIOD = 10
 
 # Resume training from the latest checkpoint in the output directory.
-_C.TRAIN.AUTO_RESUME = True
+_C.TRAIN.AUTO_RESUME = False
 
 # Path to the checkpoint to load the initial weight.
 _C.TRAIN.CHECKPOINT_FILE_PATH = ""
@@ -801,6 +801,22 @@ _C.DATA.IN_VAL_CROP_RATIO = 0.875 # 224/256 = 0.875
 # don't use real video for kinetics.py
 _C.DATA.DUMMY_LOAD = False
 
+# If True, random augment the frames
+_C.DATA.USE_RAND_AUGMENT = True
+
+# If True, random crop the frames
+_C.DATA.USE_RANDOM_RESIZE_CROPS = False
+
+# If random aug, false, for epic-kitchens
+_C.DATA.COLORJITTER = False
+
+# If random aug, false
+_C.DATA.GRAYSCALE = False
+
+# If random aug, false
+_C.DATA.GAUSSIAN = False
+
+
 # ---------------------------------------------------------------------------- #
 # Optimizer options
 # ---------------------------------------------------------------------------- #
@@ -956,6 +972,32 @@ _C.DETECTION.SPATIAL_SCALE_FACTOR = 16
 # RoI tranformation resolution.
 _C.DETECTION.ROI_XFORM_RESOLUTION = 7
 
+
+# -----------------------------------------------------------------------------
+# EPIC-KITCHENS Dataset options
+# -----------------------------------------------------------------------------
+_C.EPICKITCHENS = CfgNode()
+
+# Path to Epic-Kitchens RGB data directory
+_C.EPICKITCHENS.VISUAL_DATA_DIR = "/mnt/cephfs/dataset/EPIC-KITCHENS-100/new/EPIC-KITCHENS"
+
+# Path to Epic-Kitchens Annotation directory
+_C.EPICKITCHENS.ANNOTATIONS_DIR = "/mnt/cephfs/home/alvin/wenfu/processing"
+
+# List of EPIC-100 TRAIN files
+_C.EPICKITCHENS.TRAIN_LIST = "epic_p08_train_8action.pkl" # EPIC_100_train.pkl
+
+# List of EPIC-100 VAL files
+_C.EPICKITCHENS.VAL_LIST = "epic_p08_val_8action.pkl" # EPIC_100_validation.pkl
+
+# List of EPIC-100 TEST files
+_C.EPICKITCHENS.TEST_LIST = "epic_p08_val_8action.pkl"
+
+# Testing split
+_C.EPICKITCHENS.TEST_SPLIT = "validation"
+
+# Use Train + Val
+_C.EPICKITCHENS.TRAIN_PLUS_VAL = False
 
 # -----------------------------------------------------------------------------
 # AVA Dataset options

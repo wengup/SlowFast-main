@@ -10,13 +10,15 @@ from demo_net import demo
 from test_net import test
 from train_net import train
 from visualization import visualize
-
+from save_check_point import save_sh_n_codes
 
 def main():
     """
     Main function to spawn the train and test process.
     """
     args = parse_args()
+    opt = vars(args)    # save exp code
+    save_sh_n_codes(opt, ignore_dir=['checkpoints','ava_evaluation'])
     # print("config files: {}".format(args.cfg_files))
     # for path_to_config in args.cfg_files:
     if True:

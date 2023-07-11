@@ -1,15 +1,11 @@
-CUDA_VISIBLE_DEVICES=0,3 python -u /mnt/cephfs/home/alvin/wenfu/coderepo/STTS/MViT/tools/run_net.py \
-    --cfg /mnt/cephfs/home/alvin/wenfu/coderepo/STTS/MViT/configs/epick/epic_kitchens_224_32x3.yaml \
+CUDA_VISIBLE_DEVICES=7,4,3,2,5,6 python -u /mnt/cephfs/home/alvin/wenfu/coderepo/SlowFast-main/tools/run_net.py \
+    --cfg /mnt/cephfs/home/alvin/wenfu/coderepo/SlowFast-main/configs/epick/MVITv2_B_32x3_epick.yaml \
     TRAIN.ENABLE True \
-    TRAIN.BATCH_SIZE 16 \
-    MVIT.TIME_PRUNING_LOC None \
-    MVIT.SPACE_PRUNING_LOC None \
-    MODEL.NUM_CLASSES 8 \
-    NUM_GPUS 2 \
-    TEST.ENABLE True \
+    TRAIN.BATCH_SIZE 12 \
+    NUM_GPUS 6 \
+    TEST.ENABLE False \
     MIXUP.ENABLE False \
     SOLVER.MAX_EPOCH 50 \
-    DATA.NUM_FRAMES 16 \
-    OUTPUT_DIR /mnt/cephfs/dataset/wf_data/stts_pth/output/no_pretained \
-    TEST.BATCH_SIZE 60
+    OUTPUT_DIR /mnt/cephfs/dataset/wf_data/stts_pth/output/mvitv2_B_epic \
+    TEST.BATCH_SIZE 60 \
 

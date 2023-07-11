@@ -958,6 +958,32 @@ _C.DETECTION.ROI_XFORM_RESOLUTION = 7
 
 
 # -----------------------------------------------------------------------------
+# EPIC-KITCHENS Dataset options
+# -----------------------------------------------------------------------------
+_C.EPICKITCHENS = CfgNode()
+
+# Path to Epic-Kitchens RGB data directory
+_C.EPICKITCHENS.VISUAL_DATA_DIR = "/mnt/cephfs/dataset/EPIC-KITCHENS-100/new/EPIC-KITCHENS"
+
+# Path to Epic-Kitchens Annotation directory
+_C.EPICKITCHENS.ANNOTATIONS_DIR = "/mnt/cephfs/home/alvin/wenfu/processing"
+
+# List of EPIC-100 TRAIN files
+_C.EPICKITCHENS.TRAIN_LIST = "epic_p08_train_8action.pkl" # EPIC_100_train.pkl
+
+# List of EPIC-100 VAL files
+_C.EPICKITCHENS.VAL_LIST = "epic_p08_val_8action.pkl" # EPIC_100_validation.pkl
+
+# List of EPIC-100 TEST files
+_C.EPICKITCHENS.TEST_LIST = "epic_p08_val_8action.pkl"
+
+# Testing split
+_C.EPICKITCHENS.TEST_SPLIT = "validation"
+
+# Use Train + Val
+_C.EPICKITCHENS.TRAIN_PLUS_VAL = False
+
+# -----------------------------------------------------------------------------
 # AVA Dataset options
 # -----------------------------------------------------------------------------
 _C.AVA = CfgNode()

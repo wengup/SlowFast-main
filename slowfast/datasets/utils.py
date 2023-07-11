@@ -450,3 +450,24 @@ def _frame_to_list_img(frames):
 def _list_img_to_frames(img_list):
     img_list = [transforms.ToTensor()(img) for img in img_list]
     return torch.stack(img_list)
+
+
+def frames_augmentation(frames, colorjitter=True, use_grayscale=True, use_gaussian=False):
+    if colorjitter:
+        if np.random.uniform() >= 0.2:
+            frames = transform.color_jitter(frames, 0.4, 0.4, 0.4)
+
+    # Perform gray-scale with prob=0.2
+    if use_grayscale:
+        if np.random.uniform() >= 0.8:
+            frames = transform.grayscale(frames)
+
+    # Perform gaussian blur with prob=0.5
+    if use_gaussian:
+        if np.random.uniform() >= 0.5:
+            frames = transform.gaussian_blur(frames)
+
+    # T C H W -> C T H W
+    frames = frames.permute(1, 0, 2, 3)
+
+    return frames

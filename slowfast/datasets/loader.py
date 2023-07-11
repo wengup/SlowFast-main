@@ -27,23 +27,24 @@ def multiple_samples_collate(batch, fold=False):
     Returns:
         (tuple): collated data batch.
     """
-    inputs, labels, video_idx, time, extra_data = zip(*batch)
-    inputs = [item for sublist in inputs for item in sublist]
-    labels = [item for sublist in labels for item in sublist]
-    video_idx = [item for sublist in video_idx for item in sublist]
-    time = [item for sublist in time for item in sublist]
+    inputs, labels, video_idx, extra_data = zip(*batch)
+    if not isinstance(labels[0], (dict,)):
+        inputs = [item for sublist in inputs for item in sublist]
+        labels = [item for sublist in labels for item in sublist]
+        video_idx = [item for sublist in video_idx for item in sublist]
+    # time = [item for sublist in time for item in sublist]
 
-    inputs, labels, video_idx, time, extra_data = (
+    inputs, labels, video_idx, extra_data = (
         default_collate(inputs),
         default_collate(labels),
         default_collate(video_idx),
-        default_collate(time),
+        # default_collate(time),
         default_collate(extra_data),
     )
     if fold:
-        return [inputs], labels, video_idx, time, extra_data
+        return [inputs], labels, video_idx, extra_data
     else:
-        return inputs, labels, video_idx, time, extra_data
+        return inputs, labels, video_idx, extra_data
 
 
 def detection_collate(batch):

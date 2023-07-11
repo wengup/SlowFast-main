@@ -192,6 +192,11 @@ class SlowFast(nn.Module):
         self.cfg = cfg
         self.enable_detection = cfg.DETECTION.ENABLE
         self.num_pathways = 2
+        if cfg.TRAIN.DATASET == "Epickitchens":
+            num_classes = [8, 116]  # add epic-kitchens, [verb,noun]=[97,300]
+        else:
+            num_classes = cfg.MODEL.NUM_CLASSES
+        self.num_classes = num_classes
         self._construct_network(cfg)
         init_helper.init_weights(
             self,
@@ -393,34 +398,92 @@ class SlowFast(nn.Module):
                 detach_final_fc=cfg.MODEL.DETACH_FINAL_FC,
             )
         else:
-            self.head = head_helper.ResNetBasicHead(
-                dim_in=[
-                    width_per_group * 32,
-                    width_per_group * 32 // cfg.SLOWFAST.BETA_INV,
-                ],
-                num_classes=cfg.MODEL.NUM_CLASSES,
-                pool_size=[None, None]
-                if cfg.MULTIGRID.SHORT_CYCLE
-                or cfg.MODEL.MODEL_NAME == "ContrastiveModel"
-                else [
-                    [
-                        cfg.DATA.NUM_FRAMES
-                        // cfg.SLOWFAST.ALPHA
-                        // pool_size[0][0],
-                        cfg.DATA.TRAIN_CROP_SIZE // 32 // pool_size[0][1],
-                        cfg.DATA.TRAIN_CROP_SIZE // 32 // pool_size[0][2],
+            if isinstance(self.num_classes, (list,)) and len(self.num_classes) > 1: 
+                self.head_v = head_helper.ResNetBasicHead(
+                    dim_in=[
+                        width_per_group * 32,
+                        width_per_group * 32 // cfg.SLOWFAST.BETA_INV,
                     ],
-                    [
-                        cfg.DATA.NUM_FRAMES // pool_size[1][0],
-                        cfg.DATA.TRAIN_CROP_SIZE // 32 // pool_size[1][1],
-                        cfg.DATA.TRAIN_CROP_SIZE // 32 // pool_size[1][2],
+                    num_classes=self.num_classes[0],
+                    pool_size=[None, None]
+                    if cfg.MULTIGRID.SHORT_CYCLE
+                    or cfg.MODEL.MODEL_NAME == "ContrastiveModel"
+                    else [
+                        [
+                            cfg.DATA.NUM_FRAMES
+                            // cfg.SLOWFAST.ALPHA
+                            // pool_size[0][0],
+                            cfg.DATA.TRAIN_CROP_SIZE // 32 // pool_size[0][1],
+                            cfg.DATA.TRAIN_CROP_SIZE // 32 // pool_size[0][2],
+                        ],
+                        [
+                            cfg.DATA.NUM_FRAMES // pool_size[1][0],
+                            cfg.DATA.TRAIN_CROP_SIZE // 32 // pool_size[1][1],
+                            cfg.DATA.TRAIN_CROP_SIZE // 32 // pool_size[1][2],
+                        ],
+                    ],  # None for AdaptiveAvgPool3d((1, 1, 1))
+                    dropout_rate=cfg.MODEL.DROPOUT_RATE,
+                    act_func=cfg.MODEL.HEAD_ACT,
+                    detach_final_fc=cfg.MODEL.DETACH_FINAL_FC,
+                    cfg=cfg,
+                )
+                self.head_n = head_helper.ResNetBasicHead(
+                    dim_in=[
+                        width_per_group * 32,
+                        width_per_group * 32 // cfg.SLOWFAST.BETA_INV,
                     ],
-                ],  # None for AdaptiveAvgPool3d((1, 1, 1))
-                dropout_rate=cfg.MODEL.DROPOUT_RATE,
-                act_func=cfg.MODEL.HEAD_ACT,
-                detach_final_fc=cfg.MODEL.DETACH_FINAL_FC,
-                cfg=cfg,
-            )
+                    num_classes=self.num_classes[1],
+                    pool_size=[None, None]
+                    if cfg.MULTIGRID.SHORT_CYCLE
+                    or cfg.MODEL.MODEL_NAME == "ContrastiveModel"
+                    else [
+                        [
+                            cfg.DATA.NUM_FRAMES
+                            // cfg.SLOWFAST.ALPHA
+                            // pool_size[0][0],
+                            cfg.DATA.TRAIN_CROP_SIZE // 32 // pool_size[0][1],
+                            cfg.DATA.TRAIN_CROP_SIZE // 32 // pool_size[0][2],
+                        ],
+                        [
+                            cfg.DATA.NUM_FRAMES // pool_size[1][0],
+                            cfg.DATA.TRAIN_CROP_SIZE // 32 // pool_size[1][1],
+                            cfg.DATA.TRAIN_CROP_SIZE // 32 // pool_size[1][2],
+                        ],
+                    ],  # None for AdaptiveAvgPool3d((1, 1, 1))
+                    dropout_rate=cfg.MODEL.DROPOUT_RATE,
+                    act_func=cfg.MODEL.HEAD_ACT,
+                    detach_final_fc=cfg.MODEL.DETACH_FINAL_FC,
+                    cfg=cfg,
+                )
+            else:
+                self.head = head_helper.ResNetBasicHead(
+                    dim_in=[
+                        width_per_group * 32,
+                        width_per_group * 32 // cfg.SLOWFAST.BETA_INV,
+                    ],
+                    num_classes=cfg.MODEL.NUM_CLASSES,
+                    pool_size=[None, None]
+                    if cfg.MULTIGRID.SHORT_CYCLE
+                    or cfg.MODEL.MODEL_NAME == "ContrastiveModel"
+                    else [
+                        [
+                            cfg.DATA.NUM_FRAMES
+                            // cfg.SLOWFAST.ALPHA
+                            // pool_size[0][0],
+                            cfg.DATA.TRAIN_CROP_SIZE // 32 // pool_size[0][1],
+                            cfg.DATA.TRAIN_CROP_SIZE // 32 // pool_size[0][2],
+                        ],
+                        [
+                            cfg.DATA.NUM_FRAMES // pool_size[1][0],
+                            cfg.DATA.TRAIN_CROP_SIZE // 32 // pool_size[1][1],
+                            cfg.DATA.TRAIN_CROP_SIZE // 32 // pool_size[1][2],
+                        ],
+                    ],  # None for AdaptiveAvgPool3d((1, 1, 1))
+                    dropout_rate=cfg.MODEL.DROPOUT_RATE,
+                    act_func=cfg.MODEL.HEAD_ACT,
+                    detach_final_fc=cfg.MODEL.DETACH_FINAL_FC,
+                    cfg=cfg,
+                )
 
     def forward(self, x, bboxes=None):
         x = x[:]  # avoid pass by reference
@@ -436,11 +499,16 @@ class SlowFast(nn.Module):
         x = self.s4(x)
         x = self.s4_fuse(x)
         x = self.s5(x)
-        if self.enable_detection:
-            x = self.head(x, bboxes)
+        if isinstance(self.num_classes, (list,)) and len(self.num_classes) > 1: 
+            x_verb = self.head_v(x)
+            x_noun = self.head_n(x)
+            return [x_verb, x_noun]
         else:
-            x = self.head(x)
-        return x
+            if self.enable_detection:
+                x = self.head(x, bboxes)
+            else:
+                x = self.head(x)
+            return x
 
 
 @MODEL_REGISTRY.register()
@@ -839,7 +907,10 @@ class MViT(nn.Module):
         self.H = cfg.DATA.TRAIN_CROP_SIZE // self.patch_stride[1]
         self.W = cfg.DATA.TRAIN_CROP_SIZE // self.patch_stride[2]
         # Prepare output.
-        num_classes = cfg.MODEL.NUM_CLASSES
+        if cfg.TRAIN.DATASET == "Epickitchens":
+            num_classes = [8, 116]  # add epic-kitchens, [verb,noun]=[97,300]
+        else:
+            num_classes = cfg.MODEL.NUM_CLASSES
         embed_dim = cfg.MVIT.EMBED_DIM
         # Prepare backbone
         num_heads = cfg.MVIT.NUM_HEADS
@@ -1064,6 +1135,25 @@ class MViT(nn.Module):
                 act_func=cfg.MODEL.HEAD_ACT,
                 aligned=cfg.DETECTION.ALIGNED,
             )
+        elif isinstance(num_classes, (list,)) and len(num_classes) > 1:
+            self.head_v = head_helper.TransformerBasicHead(
+                2 * embed_dim
+                if ("concat" in cfg.MVIT.REV.RESPATH_FUSE and self.enable_rev)
+                else embed_dim,
+                num_classes[0],
+                dropout_rate=cfg.MODEL.DROPOUT_RATE,
+                act_func=cfg.MODEL.HEAD_ACT,
+                cfg=cfg,
+            )
+            self.head_n = head_helper.TransformerBasicHead(
+                2 * embed_dim
+                if ("concat" in cfg.MVIT.REV.RESPATH_FUSE and self.enable_rev)
+                else embed_dim,
+                num_classes[1],
+                dropout_rate=cfg.MODEL.DROPOUT_RATE,
+                act_func=cfg.MODEL.HEAD_ACT,
+                cfg=cfg,
+            )
         else:
             self.head = head_helper.TransformerBasicHead(
                 2 * embed_dim
@@ -1097,8 +1187,8 @@ class MViT(nn.Module):
             trunc_normal_(self.cls_token, std=0.02)
         self.apply(self._init_weights)
 
-        self.head.projection.weight.data.mul_(head_init_scale)
-        self.head.projection.bias.data.mul_(head_init_scale)
+        # self.head.projection.weight.data.mul_(head_init_scale)
+        # self.head.projection.bias.data.mul_(head_init_scale)
 
         self.feat_size, self.feat_stride = calc_mvit_feature_geometry(cfg)
 
@@ -1249,6 +1339,8 @@ class MViT(nn.Module):
                 x = x.transpose(1, 2).reshape(B, C, thw[0], thw[1], thw[2])
 
                 x = self.head([x], bboxes)
+                
+                return x
 
             else:
                 if self.use_mean_pooling:
@@ -1262,6 +1354,11 @@ class MViT(nn.Module):
                 else:  # this is default, [norm->mean]
                     x = self.norm(x)
                     x = x.mean(1)
-                x = self.head(x)
-
-        return x
+                if isinstance(self.num_classes, (list,)) and len(self.num_classes) > 1:
+                    verb_logit = self.head_v(x)
+                    noun_logit = self.head_n(x)
+                    return [verb_logit, noun_logit]
+                else:
+                    x = self.head(x)
+                    return x
+        # return x
