@@ -5,7 +5,7 @@ TRAIN:
   EVAL_PERIOD: 10
   CHECKPOINT_PERIOD: 10
   AUTO_RESUME: True
-  CHECKPOINT_FILE_PATH: /mnt/cephfs/dataset/wf_data/stts_pth/MViTv2_B_32x3_k400_f304025456.pyth
+  CHECKPOINT_FILE_PATH: /mnt/cephfs/dataset/m3lab_data/wf_data/stts_pth/MViTv2_B_32x3_k400_f304025456.pyth
 DATA:
   USE_OFFSET_SAMPLING: True
   DECODING_BACKEND: torchvision
@@ -96,13 +96,13 @@ TEST:
   BATCH_SIZE: 64
   NUM_SPATIAL_CROPS: 1
   NUM_ENSEMBLE_VIEWS: 5
-  CHECKPOINT_FILE_PATH: /mnt/cephfs/dataset/wf_data/stts_pth/MViTv2_B_32x3_k400_f304025456.pyth
+  CHECKPOINT_FILE_PATH: /mnt/cephfs/dataset/m3lab_data/wf_data/stts_pth/MViTv2_B_32x3_k400_f304025456.pyth
 DATA_LOADER:
   NUM_WORKERS: 8
   PIN_MEMORY: True
 NUM_GPUS: 8
 NUM_SHARDS: 1
 RNG_SEED: 0
-OUTPUT_DIR: /mnt/cephfs/dataset/wf_data/stts_pth/output/mvitv2_B_epic
+OUTPUT_DIR: /mnt/cephfs/dataset/m3lab_data/wf_data/stts_pth/output/mvitv2_B_epic
 TENSORBOARD:
   ENABLE: True

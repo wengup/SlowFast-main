@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.init import trunc_normal_
-
+from math import sqrt
 import slowfast.utils.logging as logging
 import slowfast.utils.weight_init_helper as init_helper
 from slowfast.models.attention import MultiScaleBlock
@@ -22,7 +22,7 @@ from slowfast.models.utils import (
     round_width,
     validate_checkpoint_wrapper_import,
 )
-
+from slowfast.models.topk import PatchNet
 from . import head_helper, operators, resnet_helper, stem_helper  # noqa
 from .build import MODEL_REGISTRY
 
@@ -920,7 +920,7 @@ class MViT(nn.Module):
         depth = cfg.MVIT.DEPTH
         drop_path_rate = cfg.MVIT.DROPPATH_RATE
         layer_scale_init_value = cfg.MVIT.LAYER_SCALE_INIT_VALUE
-        head_init_scale = cfg.MVIT.HEAD_INIT_SCALE
+        head_init_scale = cfg.MVIT.HEAD_INIT_SCALE # to
         mode = cfg.MVIT.MODE
         self.cls_embed_on = cfg.MVIT.CLS_EMBED_ON
         self.use_mean_pooling = cfg.MVIT.USE_MEAN_POOLING
@@ -944,7 +944,7 @@ class MViT(nn.Module):
             conv_2d=self.use_2d_patch,
         )
 
-        if cfg.MODEL.ACT_CHECKPOINT:
+        if cfg.MODEL.ACT_CHECKPOINT: # default: flase
             self.patch_embed = checkpoint_wrapper(self.patch_embed)
         self.input_dims = [temporal_size, spatial_size, spatial_size]
         assert self.input_dims[1] == self.input_dims[2]
@@ -990,6 +990,27 @@ class MViT(nn.Module):
 
         if self.drop_rate > 0.0:
             self.pos_drop = nn.Dropout(p=self.drop_rate)
+
+        # configs of STTS.
+        # temporal
+        self.time_pruning_loc = cfg.MVIT.TIME_PRUNING_LOC
+        time_left_ratio = cfg.MVIT.TIME_LEFT_RATIO
+        time_score = cfg.MVIT.TIME_SCORE
+        # spatial 
+        self.space_pruning_loc = cfg.MVIT.SPACE_PRUNING_LOC
+        space_left_ratio = cfg.MVIT.SPACE_LEFT_RATIO
+        space_score = cfg.MVIT.SPACE_SCORE
+        # which block to insert
+        s_count = 0
+        t_count = 0
+        # sigma is a hyper-parameter controlling the noise variance
+        self.sigma_max = cfg.MVIT.SIGMA
+        self.sigma = cfg.MVIT.SIGMA
+        # construct the selection blocks
+        embedding_temporal_size = temporal_size // 2
+        embedding_spatial_size = self.patch_dims[1] * self.patch_dims[2]
+        time_score_predictor = nn.ModuleList()
+        space_score_predictor = nn.ModuleList()
 
         dim_mul, head_mul = torch.ones(depth + 1), torch.ones(depth + 1)
         for i in range(len(cfg.MVIT.DIM_MUL)):
@@ -1119,10 +1140,33 @@ class MViT(nn.Module):
                         size // stride
                         for size, stride in zip(input_size, stride_q[i])
                     ]
+                    embedding_spatial_size = (int(sqrt(embedding_spatial_size)) // stride_q[i][1]) ** 2
+                    
+                # Spatial-Temporal Token Selection (STTS) block
+                if self.time_pruning_loc is not None and i in self.time_pruning_loc:
+                    left_frames = int(embedding_temporal_size * time_left_ratio[t_count])
+                    t_count += 1
+                    patchnet = PatchNet(score=time_score, k=left_frames, in_channels = embed_dim)
+                    time_score_predictor.append(patchnet)
+                    embedding_temporal_size = left_frames
+            
+                if self.space_pruning_loc is not None and i in self.space_pruning_loc:
+                    left_patches = int(embedding_spatial_size * space_left_ratio[s_count])
+                    s_count += 1
+                    patchnet = PatchNet(score=space_score, k=left_patches, in_channels = embed_dim) 
+                    space_score_predictor.append(patchnet)
+                    embedding_spatial_size = left_patches
 
                 embed_dim = dim_out
 
             self.norm = norm_layer(embed_dim)
+            
+        if len(time_score_predictor) > 0:
+            self.time_score_predictor = time_score_predictor
+
+        if len(space_score_predictor) > 0:
+            self.space_score_predictor = space_score_predictor
+            
 
         if self.enable_detection:
             self.head = head_helper.ResNetRoIHead(
@@ -1136,24 +1180,16 @@ class MViT(nn.Module):
                 aligned=cfg.DETECTION.ALIGNED,
             )
         elif isinstance(num_classes, (list,)) and len(num_classes) > 1:
-            self.head_v = head_helper.TransformerBasicHead(
-                2 * embed_dim
-                if ("concat" in cfg.MVIT.REV.RESPATH_FUSE and self.enable_rev)
-                else embed_dim,
-                num_classes[0],
-                dropout_rate=cfg.MODEL.DROPOUT_RATE,
-                act_func=cfg.MODEL.HEAD_ACT,
-                cfg=cfg,
-            )
-            self.head_n = head_helper.TransformerBasicHead(
-                2 * embed_dim
-                if ("concat" in cfg.MVIT.REV.RESPATH_FUSE and self.enable_rev)
-                else embed_dim,
-                num_classes[1],
-                dropout_rate=cfg.MODEL.DROPOUT_RATE,
-                act_func=cfg.MODEL.HEAD_ACT,
-                cfg=cfg,
-            )
+            for a, i in enumerate(range(len(num_classes))):
+                setattr(self, "head_%d"%a, head_helper.TransformerBasicHead(
+                    2 * embed_dim
+                    if ("concat" in cfg.MVIT.REV.RESPATH_FUSE and self.enable_rev)
+                    else embed_dim,
+                    num_classes[i],
+                    dropout_rate=cfg.MODEL.DROPOUT_RATE,
+                    act_func=cfg.MODEL.HEAD_ACT,
+                    cfg=cfg, )
+                )
         else:
             self.head = head_helper.TransformerBasicHead(
                 2 * embed_dim
@@ -1224,6 +1260,12 @@ class MViT(nn.Module):
                 names.append("cls_token")
 
         return names
+
+    def update_sigma(self, cur_step, total_steps):
+        # Eqn(8) in the STTS paper
+        process = cur_step / total_steps
+        sigma_multiplier = 1 - process
+        self.sigma = self.sigma_max * sigma_multiplier
 
     def _get_pos_embed(self, pos_embed, bcthw):
 
@@ -1320,13 +1362,48 @@ class MViT(nn.Module):
             x = self.norm_stem(x)
 
         thw = [T, H, W]
-
+     
         if self.enable_rev:
             x = self._forward_reversible(x)
-
         else:
-            for blk in self.blocks:
+            # for blk in self.blocks:
+            #     x, thw = blk(x, thw)
+            t_count = 0 # record which block to insert
+            s_count = 0
+            Ns = N // T # number of embedding patches
+            for i, blk in enumerate(self.blocks):
+                # on/off the STTS block
+                if hasattr(self, 'time_score_predictor') and i in self.time_pruning_loc:
+                    if self.cls_embed_on:
+                        cls_tokens, x = x[:, 0:1], x[:,1:]
+                    
+                    x = self.time_score_predictor[t_count](x, 'time', Ns, T, self.sigma)
+
+                    T = x.size(1) // Ns
+                    t_count += 1
+                    if self.cls_embed_on:
+                        x = torch.cat((cls_tokens, x), dim=1)
+                
+                    thw = [T, H, W]
+                        
+                if hasattr(self, 'space_score_predictor') and i in self.space_pruning_loc:
+                    if self.cls_embed_on:
+                        cls_tokens, x = x[:, 0:1, :], x[:,1:]
+                    # x.shape = [bs, left_t*14*14, c]
+                    x = self.space_score_predictor[s_count](x, 'space', Ns, T, self.sigma) 
+                    
+                    Ns = x.size(1) // T
+                    H = W = int(math.sqrt(Ns))
+                    s_count += 1
+                    if self.cls_embed_on:
+                        x = torch.cat((cls_tokens, x), dim=1)
+                    thw = [T, H, W]
+
+
                 x, thw = blk(x, thw)
+                
+                T, H, W = thw[0], thw[1], thw[1]
+                Ns = H * W
 
             if self.enable_detection:
                 assert not self.enable_rev
@@ -1355,9 +1432,13 @@ class MViT(nn.Module):
                     x = self.norm(x)
                     x = x.mean(1)
                 if isinstance(self.num_classes, (list,)) and len(self.num_classes) > 1:
-                    verb_logit = self.head_v(x)
-                    noun_logit = self.head_n(x)
-                    return [verb_logit, noun_logit]
+                    # verb_logit = self.head_v(x)
+                    # noun_logit = self.head_n(x)
+                    output = []
+                    for head in range(len(self.num_classes)):
+                        x_out = getattr(self, "head_%d"%head)(x)
+                        output.append(x_out)
+                    return output
                 else:
                     x = self.head(x)
                     return x
