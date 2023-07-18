@@ -219,7 +219,7 @@ def is_eval_epoch(cfg, cur_epoch, multigrid_schedule):
                 return (s[-1] - 1 - cur_epoch) % period == 0
             prev_epoch = s[-1]
 
-    return (cur_epoch + 1) % cfg.TRAIN.EVAL_PERIOD == 0
+    return (cur_epoch + 1) % cfg.TRAIN.EVAL_PERIOD == 0 and cur_epoch > 10
 
 
 def plot_input(tensor, bboxes=(), texts=(), path="./tmp_vis.png"):

@@ -11,28 +11,42 @@
             "program": "${workspaceFolder}/tools/run_net.py",
             "console": "integratedTerminal",
             "env": {
-                "CUDA_VISIBLE_DEVICES": "4,1"
+                "CUDA_VISIBLE_DEVICES": "6,7"
             },
             "args": [
                 "--cfg",
-                "/mnt/cephfs/home/alvin/wenfu/coderepo/SlowFast-main/configs/epick/MVITv2_B_32x3_epick.yaml",
-                "/mnt/cephfs/home/alvin/wenfu/coderepo/SlowFast-main/configs/epick/SLOWFAST_8x8_R50_epick.yaml",
+                "/mnt/cephfs/home/alvin/wenfu/coderepo/SlowFast-main/configs/epick/MVITv2_S_16x4_epick.yaml",
+                // "/mnt/cephfs/home/alvin/wenfu/coderepo/SlowFast-main/configs/epick/SLOWFAST_8x8_R50_epick.yaml",
                 "TRAIN.ENABLE",
-                "True",
+                "False",
+                "TRAIN.BATCH_SIZE",
+                "4",
                 "NUM_GPUS",
                 "2",
                 "TEST.ENABLE",
-                "False",
+                "True",
                 "OUTPUT_DIR",
-                "/mnt/cephfs/dataset/wf_data/stts_pth/output/SF8x8_R50_epick",
-                // "TEST.BATCH_SIZE",
-                // "4",
-                // "TEST.CHECKPOINT_FILE_PATH",
-                // "/mnt/cephfs/dataset/wf_data/stts_pth/MViTv2_B_32x3_k400_f304025456.pyth",
+                "/mnt/cephfs/dataset/wf_data/stts_pth/output/infer",
+                "TEST.BATCH_SIZE",
+                "4",
+                "TEST.CHECKPOINT_FILE_PATH",
+                "/mnt/cephfs/dataset/m3lab_data/wf_data/stts_pth/exp_log/mv2_S_t03s08_bs24_lr1e-7_epic/checkpoints/best_checkpoint.pyth",
+                "MVIT.TIME_PRUNING_LOC",
+                "[0]",
+                "MVIT.SPACE_PRUNING_LOC",
+                "[4]",
+                "MVIT.TIME_LEFT_RATIO",
+                "[0.3]",
+                "MVIT.SPACE_LEFT_RATIO",
+                "[0.8]",
+                "MVIT.TEMPORAL_LOC",
+                "None",
+                "MVIT.SPATIAL_LOC",
+                "None"
                 // "DATA.PATH_TO_DATA_DIR",
                 // "/mnt/cephfs/dataset/wf_data/stts_pth/k400_annotations"
             ],
-            "justMyCode": false
+            "justMyCode": true
         }
     ]
 }

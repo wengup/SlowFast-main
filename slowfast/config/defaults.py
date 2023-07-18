@@ -147,6 +147,9 @@ _C.TRAIN.EVAL_PERIOD = 10
 # Save model checkpoint every checkpoint period epochs.
 _C.TRAIN.CHECKPOINT_PERIOD = 10
 
+# Save the best model checkpoint.
+_C.TRAIN.BEST_CHECKPOINT = False
+
 # Resume training from the latest checkpoint in the output directory.
 _C.TRAIN.AUTO_RESUME = False
 
@@ -554,6 +557,37 @@ _C.MVIT.USE_MEAN_POOLING = False
 
 # If True, use frozen sin cos positional embedding.
 _C.MVIT.USE_FIXED_SINCOS_POS = False
+
+# configs of STTS
+_C.MVIT.DECAY_SIGMA = True
+
+# control the 
+_C.MVIT.SIGMA = 0.1
+
+# the layer to insert temporal score network, stts, default: [0]
+_C.MVIT.TIME_PRUNING_LOC = None
+
+# If not None, enable the block, stts, default: [4]
+_C.MVIT.SPACE_PRUNING_LOC = None
+
+# If not None, enable the block, stts, default: [0]
+_C.MVIT.TEMPORAL_LOC = [0]
+
+# If not None, enable the block, prompt selnet, default: [4]
+_C.MVIT.SPATIAL_LOC = [4]
+
+# If None, not append the prompt
+_C.MVIT.NUM_PROMPT = 10
+
+# temporal score network
+_C.MVIT.TIME_SCORE = 'tpool'
+
+# spatial score network
+_C.MVIT.SPACE_SCORE = 'spatch'
+
+_C.MVIT.TIME_LEFT_RATIO = [0.8]
+
+_C.MVIT.SPACE_LEFT_RATIO = [0.9]
 
 # -----------------------------------------------------------------------------
 # Masked pretraining options
