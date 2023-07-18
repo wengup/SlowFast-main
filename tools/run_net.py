@@ -2,10 +2,6 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 """Wrapper to train and test a video classification model."""
-import sys
-if '/home/alvin/.local/lib/python3.8/site-packages' in sys.path:
-    sys.path.remove('/home/alvin/.local/lib/python3.8/site-packages')
-sys.path.insert(0,'/mnt/cephfs/home/alvin/wenfu/coderepo/SlowFast-main')
 from slowfast.config.defaults import assert_and_infer_cfg
 from slowfast.utils.misc import launch_job
 from slowfast.utils.parser import load_config, parse_args
@@ -22,7 +18,7 @@ def main():
     """
     args = parse_args()
     opt = vars(args)    # save exp code
-    save_sh_n_codes(opt, ignore_dir=['checkpoints','ava_evaluation','build','demo'])
+    save_sh_n_codes(opt, ignore_dir=['checkpoints','ava_evaluation'])
     # print("config files: {}".format(args.cfg_files))
     # for path_to_config in args.cfg_files:
     if True:

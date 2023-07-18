@@ -48,7 +48,6 @@ def perform_test(test_loader, model, test_meter, cfg, writer=None):
 
     for cur_iter, (inputs, labels, video_idx, meta) in enumerate(test_loader): # time,
 
-        time = 0.0
         if cfg.NUM_GPUS:
             # Transfer the data to the current GPU device.
             if isinstance(inputs, (list,)):
@@ -62,8 +61,7 @@ def perform_test(test_loader, model, test_meter, cfg, writer=None):
             for key, val in meta.items():
                 if isinstance(val, (list,)):
                     for i in range(len(val)):
-                        if not isinstance(val[i], (str,)):
-                            val[i] = val[i].cuda(non_blocking=True)
+                        val[i] = val[i].cuda(non_blocking=True)
                 else:
                     meta[key] = val.cuda(non_blocking=True)
         test_meter.data_toc()
@@ -132,8 +130,7 @@ def perform_test(test_loader, model, test_meter, cfg, writer=None):
                 meta = du.all_gather_unaligned(meta)
                 metadata = {'narration_id': []}
                 for i in range(len(meta)):
-                    metadata['narration_id'].extend(meta[i]['narration_id'])  
-                metadata['narration_id'] = [int(x) if isinstance(x, str) else x for x in metadata['narration_id']]
+                    metadata['narration_id'].extend(meta[i]['narration_id'].cpu().numpy().tolist())  
             else:
                 metadata = meta
                 verb_preds, verb_labels, video_idx = preds[0], labels['verb'], video_idx
@@ -169,34 +166,24 @@ def perform_test(test_loader, model, test_meter, cfg, writer=None):
 
     # Log epoch stats and print the final testing results.
     if not cfg.DETECTION.ENABLE:
-        if cfg.TEST.DATASET == 'Epickitchens':
-            if du.is_master_proc():
-                results = {'verb_output': test_meter.verb_video_labels,
-                        'noun_output': test_meter.noun_video_labels,
-                        'narration_id': metadata}
-                scores_path = os.path.join(cfg.OUTPUT_DIR, 'scores')
-                if not os.path.exists(scores_path):
-                    os.makedirs(scores_path)
-                TEST_SPLIT = "validation"
-                save_path = os.path.join(scores_path, TEST_SPLIT + '.pkl')
-                pickle.dump(results, open(save_path, 'wb'))
-                logger.info("Successfully saved prediction results to {}".format(save_path))
-        else:            
-            all_preds = test_meter.video_preds.clone().detach()
-            all_labels = test_meter.video_labels
-            if cfg.NUM_GPUS:
-                all_preds = all_preds.cpu()
-                all_labels = all_labels.cpu()
-            if writer is not None:
-                writer.plot_eval(preds=all_preds, labels=all_labels)
+        all_preds = test_meter.video_preds.clone().detach()
+        all_labels = test_meter.video_labels
+        if cfg.NUM_GPUS:
+            all_preds = all_preds.cpu()
+            all_labels = all_labels.cpu()
+        if writer is not None:
+            writer.plot_eval(preds=all_preds, labels=all_labels)
 
-            if cfg.TEST.SAVE_RESULTS_PATH != "":
-                save_path = os.path.join(cfg.OUTPUT_DIR, cfg.TEST.SAVE_RESULTS_PATH)
+        if cfg.TEST.SAVE_RESULTS_PATH != "":
+            save_path = os.path.join(cfg.OUTPUT_DIR, cfg.TEST.SAVE_RESULTS_PATH)
 
-                if du.is_root_proc():
-                    with pathmgr.open(save_path, "wb") as f:
-                        pickle.dump([all_preds, all_labels], f)
-                logger.info("Successfully saved prediction results to {}".format(save_path))
+            if du.is_root_proc():
+                with pathmgr.open(save_path, "wb") as f:
+                    pickle.dump([all_preds, all_labels], f)
+
+            logger.info(
+                "Successfully saved prediction results to {}".format(save_path)
+            )
 
     test_meter.finalize_metrics()
     return test_meter
@@ -235,12 +222,12 @@ def test(cfg):
         flops, params = 0.0, 0.0
         if du.is_master_proc() and cfg.LOG_MODEL_INFO:
             model.eval()
-            flops, params = misc.log_model_info(
-                model, cfg, use_train_input=False
-            )
+            # flops, params = misc.log_model_info(
+            #     model, cfg, use_train_input=False
+            # )
 
-        if du.is_master_proc() and cfg.LOG_MODEL_INFO:
-            misc.log_model_info(model, cfg, use_train_input=False)
+        # if du.is_master_elproc() and cfg.LOG_MODEL_INFO:
+        #     misc.log_mod_info(model, cfg, use_train_input=False)
         if (
             cfg.TASK == "ssl"
             and cfg.MODEL.MODEL_NAME == "ContrastiveModel"
@@ -267,13 +254,12 @@ def test(cfg):
                 % (cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS)
                 == 0
             )
-            if cfg.TEST.DATASET == 'Epickitchens':  #
-                num_classes = [8, 116]
+            if cfg.TEST.DATASET == 'Epickitchens':  # modified July03,2023,20:31pm
                 test_meter = EPICTestMeter(
                     len(test_loader.dataset)
                     // (cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS),
                     cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS,
-                    num_classes,
+                    cfg.MODEL.NUM_CLASSES,
                     len(test_loader),
                 )
             else:
@@ -292,7 +278,7 @@ def test(cfg):
 
         # Set up writer for logging to Tensorboard format.
         if cfg.TENSORBOARD.ENABLE and du.is_master_proc(
-            cfg.NUM_GPUS * cfg.NUM_SHARDS 
+            cfg.NUM_GPUS * cfg.NUM_SHARDS
         ):
             writer = tb.TensorboardWriter(cfg)
         else:
@@ -317,7 +303,7 @@ def test(cfg):
         )
 
         result_string = (
-            "param{:.2f} flops{:.2f}_ {} top1 Acc: {} top5 Acc: {} MEM: {:.2f}G flops: {:.4f}G"
+            "_p{:.2f}_f{:.2f}_{}a{} Top5 Acc: {} MEM: {:.2f} f: {:.4f}"
             "".format(
                 params / 1e6,
                 flops,

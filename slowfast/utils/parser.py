@@ -43,7 +43,7 @@ def parse_args():
     parser.add_argument(
         "--init_method",
         help="Initialization method, includes TCP or shared file-system",
-        default="tcp://localhost:9786",
+        default="tcp://localhost:9789",
         type=str,
     )
     parser.add_argument(
@@ -63,7 +63,7 @@ def parse_args():
     parser.add_argument(
         '--checkpoint_path', 
         type=str, 
-        default='/mnt/cephfs/dataset/m3lab_data/wf_data/stts_pth/exp_log/all_output'
+        default='/mnt/cephfs/dataset/wf_data/stts_pth/output/mvitv2_B_epic'
     )
     if len(sys.argv) == 1:
         parser.print_help()

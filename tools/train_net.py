@@ -395,7 +395,7 @@ def eval_epoch(
     val_meter.iter_tic()
 
     for cur_iter, (inputs, labels, index, meta) in enumerate(val_loader):
-        time = 0.0
+        times = 0.0
         meta = {}
         if cfg.NUM_GPUS:
             # Transferthe data to the current GPU device.
@@ -729,7 +729,7 @@ def train(cfg):
             start_epoch = checkpoint_epoch + 1
         else:
             start_epoch = 0
-    elif cfg.TRAIN.AUTO_RESUME and cfg.TRAIN.CHECKPOINT_FILE_PATH == "":
+    elif cfg.TRAIN.CHECKPOINT_FILE_PATH == "":
         logger.info("Load from given checkpoint file.")
         checkpoint_epoch = cu.load_checkpoint(
             cfg.TRAIN.CHECKPOINT_FILE_PATH,
@@ -794,7 +794,6 @@ def train(cfg):
     logger.info("Start epoch: {}".format(start_epoch + 1))
 
     epoch_timer = EpochTimer()
-    best_top1_acc = 0.0
     for cur_epoch in range(start_epoch, cfg.SOLVER.MAX_EPOCH):
 
         if cur_epoch > 0 and cfg.DATA.LOADER_CHUNK_SIZE > 0:
@@ -918,32 +917,12 @@ def train(cfg):
                 train_loader,
                 writer,
             )
-        # Save the best checkpiont.
-        if val_meter.max_top1_acc > best_top1_acc:
-            best_top1_acc = val_meter.max_top1_acc
-            cfg.TRAIN.BEST_CHECKPOINT = True
-            cu.save_checkpoint(
-                cfg.OUTPUT_DIR,
-                model,
-                optimizer,
-                cur_epoch,
-                cfg,
-                scaler if cfg.TRAIN.MIXED_PRECISION else None,
-            )
-            logger.info("Saving the best checkpiont from epoch {}, best top1acc [action: {:.5f} verb: {:.5f} noun: {:.5f}]".format(
-                cur_epoch + 1, 
-                best_top1_acc,
-                val_meter.cur_verb_top1_acc,
-                val_meter.cur_noun_top1_acc,
-                )
-            )
-        
     if start_epoch == cfg.SOLVER.MAX_EPOCH and not cfg.MASK.ENABLE: # final checkpoint load
         eval_epoch(val_loader, model, val_meter, start_epoch, cfg, train_loader, writer)
     if writer is not None:
         writer.close()
     result_string = (
-        "Param {:.2f} flops {:.2f} _t {:.2f}_m {:.2f} _Top1 Acc: {:.2f} Top5 Acc: {:.2f} MEM: {:.2f}G  flops: {:.4f}G"
+        "_p{:.2f}_f{:.2f} _t{:.2f}_m{:.2f} _a{:.2f} Top5 Acc: {:.2f} MEM: {:.2f} f: {:.4f}"
         "".format(
             params / 1e6,
             flops,
