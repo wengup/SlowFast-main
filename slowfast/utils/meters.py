@@ -1148,8 +1148,6 @@ class EPICValMeter(object):
         self.max_verb_top5_acc = 0.0
         self.max_noun_top1_acc = 0.0
         self.max_noun_top5_acc = 0.0
-        self.cur_verb_top1_acc = 0.0
-        self.cur_noun_top1_acc = 0.0
         # Number of correctly classified examples.
         self.num_top1_cor = 0
         self.num_top5_cor = 0
@@ -1258,7 +1256,6 @@ class EPICValMeter(object):
         verb_top5_acc = self.num_verb_top5_cor / self.num_samples
         noun_top1_acc = self.num_noun_top1_cor / self.num_samples
         noun_top5_acc = self.num_noun_top5_cor / self.num_samples
-        self.cur_verb_top1_acc, self.cur_noun_top1_acc = verb_top1_acc, noun_top1_acc
         top1_acc = self.num_top1_cor / self.num_samples
         top5_acc = self.num_top5_cor / self.num_samples
         self.max_verb_top1_acc = max(self.max_verb_top1_acc, verb_top1_acc)
@@ -1337,7 +1334,6 @@ class EPICTestMeter(object):
         self.noun_video_labels = torch.zeros((num_videos)).long()
         self.metadata = np.zeros(num_videos, dtype=object)
         self.clip_count = torch.zeros((num_videos)).long()
-        self.stats = {}
         # Reset metric.
         self.reset()
 
@@ -1434,14 +1430,13 @@ class EPICTestMeter(object):
 
         assert len({len(ks), len(verb_topks)}) == 1
         assert len({len(ks), len(noun_topks)}) == 1
-        self.stats = stats = {"split": "test_final"}
+        stats = {"split": "test_final"}
         for k, verb_topk in zip(ks, verb_topks):
             stats["verb_top{}_acc".format(k)] = "{:.{prec}f}".format(verb_topk, prec=2)
         for k, noun_topk in zip(ks, noun_topks):
             stats["noun_top{}_acc".format(k)] = "{:.{prec}f}".format(noun_topk, prec=2)
         for k, action_topk in zip(ks, action_topks):	
             stats["action_top{}_acc".format(k)] = "{:.{prec}f}".format(action_topk, prec=2)
-            self.stats["top{}_acc".format(k)] = "{:.{prec}f}".format(action_topk, prec=2)
         logging.log_json_stats(stats)
         return (self.verb_video_preds.numpy().copy(), self.noun_video_preds.numpy().copy()), \
                (self.verb_video_labels.numpy().copy(), self.noun_video_labels.numpy().copy()), \
