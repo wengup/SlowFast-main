@@ -21,8 +21,8 @@ def main():
     Main function to spawn the train and test process.
     """
     args = parse_args()
-    # opt = vars(args)    # save exp code
-    # save_sh_n_codes(opt, ignore_dir=['checkpoints','ava_evaluation','build','demo'])
+    opt = vars(args)    # save exp code
+    save_sh_n_codes(opt, ignore_dir=['checkpoints','ava_evaluation','build','demo'])
     # print("config files: {}".format(args.cfg_files))
     # for path_to_config in args.cfg_files:
     if True:

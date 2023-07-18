@@ -564,11 +564,20 @@ _C.MVIT.DECAY_SIGMA = True
 # control the 
 _C.MVIT.SIGMA = 0.1
 
-# the layer to insert temporal score network
+# the layer to insert temporal score network, stts, default: [0]
 _C.MVIT.TIME_PRUNING_LOC = None
 
-# If not None, enable the block
+# If not None, enable the block, stts, default: [4]
 _C.MVIT.SPACE_PRUNING_LOC = None
+
+# If not None, enable the block, stts, default: [0]
+_C.MVIT.TEMPORAL_LOC = [0]
+
+# If not None, enable the block, prompt selnet, default: [4]
+_C.MVIT.SPATIAL_LOC = [4]
+
+# If None, not append the prompt
+_C.MVIT.NUM_PROMPT = 10
 
 # temporal score network
 _C.MVIT.TIME_SCORE = 'tpool'
