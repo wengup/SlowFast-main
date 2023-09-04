@@ -16,17 +16,17 @@ DATA:
   TEST_CROP_SIZE: 224
   INPUT_CHANNEL_NUM: [3]
   # PATH_TO_DATA_DIR: path-to-k400-dir
-  PATH_TO_DATA_DIR: /mnt/cephfs/home/alvin/wenfu/processing
-  PATH_PREFIX: /mnt/cephfs/dataset/EPIC-KITCHENS-100/new/EPIC-KITCHENS
+  PATH_TO_DATA_DIR: /mnt/cephfs/home/alvin/wenfu/epic_kitchens/epic-kitchens-100-annotations
+  PATH_PREFIX: /mnt/cephfs/dataset/EPIC-KITCHENS-100/EPIC-KITCHENS
   TRAIN_JITTER_SCALES_RELATIVE: [0.08, 1.0]
   TRAIN_JITTER_ASPECT_RELATIVE: [0.75, 1.3333]
   COLORJITTER: False  # new
 EPICKITCHENS:
-  VISUAL_DATA_DIR: /mnt/cephfs/dataset/EPIC-KITCHENS-100/new/EPIC-KITCHENS
-  ANNOTATIONS_DIR: /mnt/cephfs/home/alvin/wenfu/processing
-  TRAIN_LIST: epic_p08_train_8action.pkl
-  VAL_LIST: epic_p08_val_8action.pkl
-  TEST_LIST: epic_p08_val_8action.pkl
+  VISUAL_DATA_DIR: /mnt/cephfs/dataset/EPIC-KITCHENS-100/EPIC-KITCHENS
+  ANNOTATIONS_DIR: /mnt/cephfs/home/alvin/wenfu/epic_kitchens/epic-kitchens-100-annotations
+  TRAIN_LIST: EPIC_100_train.pkl
+  VAL_LIST: EPIC_100_validation.pkl
+  TEST_LIST: EPIC_100_validation.pkl
 MVIT:
   ZERO_DECAY_POS_CLS: False
   USE_ABS_POS: False
@@ -63,7 +63,7 @@ AUG:
   RE_COUNT: 1
   RE_SPLIT: False
 MIXUP:
-  ENABLE: False ##
+  ENABLE: True ##
   ALPHA: 0.8
   CUTMIX_ALPHA: 1.0
   PROB: 1.0
@@ -88,7 +88,7 @@ MODEL:
   NUM_CLASSES: 400
   ARCH: mvit
   MODEL_NAME: MViT
-  LOSS_FUNC: cross_entropy # soft_cross_entropy
+  LOSS_FUNC: soft_cross_entropy
   DROPOUT_RATE: 0.5
 TEST:
   ENABLE: False

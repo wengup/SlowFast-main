@@ -169,7 +169,7 @@ _C.TRAIN.CHECKPOINT_EPOCH_RESET = False
 _C.TRAIN.CHECKPOINT_CLEAR_NAME_PATTERN = ()  # ("backbone.",)
 
 # If True, use FP16 for activations
-_C.TRAIN.MIXED_PRECISION = False
+_C.TRAIN.MIXED_PRECISION = True
 
 # if True, inflate some params from imagenet model.
 _C.TRAIN.CHECKPOINT_IN_INIT = False
@@ -564,11 +564,20 @@ _C.MVIT.DECAY_SIGMA = True
 # control the 
 _C.MVIT.SIGMA = 0.1
 
-# the layer to insert temporal score network
+# the layer to insert temporal score network, stts, default: [0]
 _C.MVIT.TIME_PRUNING_LOC = None
 
-# If not None, enable the block
+# If not None, enable the block, stts, default: [4]
 _C.MVIT.SPACE_PRUNING_LOC = None
+
+# If not None, enable the block, stts, default: [0]
+_C.MVIT.TEMPORAL_LOC = [0]
+
+# If not None, enable the block, prompt selnet, default: [4]
+_C.MVIT.SPATIAL_LOC = [4]
+
+# If None, not append the prompt
+_C.MVIT.NUM_PROMPT = 10
 
 # temporal score network
 _C.MVIT.TIME_SCORE = 'tpool'

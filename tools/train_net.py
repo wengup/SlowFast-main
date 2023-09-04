@@ -59,6 +59,11 @@ def train_epoch(
     train_meter.iter_tic()
     data_size = len(train_loader)
 
+    classes = (
+        cfg.MODEL.NUM_CLASSES 
+        if cfg.TRAIN.DATASET != "Epickitchens" 
+        else {'verb':97, 'noun':300}
+    )
     if cfg.MIXUP.ENABLE:
         mixup_fn = MixUp(
             mixup_alpha=cfg.MIXUP.ALPHA,
@@ -66,7 +71,7 @@ def train_epoch(
             mix_prob=cfg.MIXUP.PROB,
             switch_prob=cfg.MIXUP.SWITCH_PROB,
             label_smoothing=cfg.MIXUP.LABEL_SMOOTH_VALUE,
-            num_classes=cfg.MODEL.NUM_CLASSES,
+            num_classes=classes,
         )
 
     if cfg.MODEL.FROZEN_BN:
@@ -79,7 +84,6 @@ def train_epoch(
     ):
         # Transfer the data to the current GPU device.
         time = 0.0
-        meta = {}
         if cfg.NUM_GPUS:
             if isinstance(inputs, (list,)):
                 for i in range(len(inputs)):
@@ -91,13 +95,17 @@ def train_epoch(
             else:
                 inputs = inputs.cuda(non_blocking=True)
             if not isinstance(labels, list):
-                labels = labels if isinstance(labels, (dict,)) else labels.cuda()
+                if isinstance(labels, (dict,)):
+                    labels = {k: v.cuda() for k, v in labels.items()}
+                else:
+                    labels = labels.cuda()
                 # index = index.cuda(non_blocking=True)
                 # time = time.cuda(non_blocking=True)
             for key, val in meta.items():
                 if isinstance(val, (list,)):
                     for i in range(len(val)):
-                        val[i] = val[i].cuda(non_blocking=True)
+                        if not isinstance(val[i], (str,)):
+                            val[i] = val[i].cuda(non_blocking=True)
                 else:
                     meta[key] = val.cuda(non_blocking=True)
 
@@ -138,6 +146,7 @@ def train_epoch(
                 preds, labels = model(inputs)
             else:
                 preds = model(inputs)
+                
             if cfg.TASK == "ssl" and cfg.MODEL.MODEL_NAME == "ContrastiveModel":
                 labels = torch.zeros(
                     preds.size(0), dtype=labels.dtype, device=labels.device
@@ -146,9 +155,9 @@ def train_epoch(
             if cfg.MODEL.MODEL_NAME == "ContrastiveModel" and partial_loss:
                 loss = partial_loss
             elif isinstance(labels, (dict,)) and cfg.TRAIN.DATASET == "Epickitchens": 
-                yv, yn = labels['verb'].cuda(), labels['noun'].cuda()
-                loss_verb = loss_fun(preds[0], yv)
-                loss_noun = loss_fun(preds[1], yn)
+                # yv, yn = labels['verb'].cuda(), labels['noun'].cuda()
+                loss_verb = loss_fun(preds[0], labels['verb'])
+                loss_noun = loss_fun(preds[1], labels['noun'])
                 loss = 0.5 * (loss_verb + loss_noun)
             else:
                 # Compute the loss.
@@ -184,15 +193,33 @@ def train_epoch(
         scaler.update()
 
         if cfg.MIXUP.ENABLE:
-            _top_max_k_vals, top_max_k_inds = torch.topk(
-                labels, 2, dim=1, largest=True, sorted=True
-            )
-            idx_top1 = torch.arange(labels.shape[0]), top_max_k_inds[:, 0]
-            idx_top2 = torch.arange(labels.shape[0]), top_max_k_inds[:, 1]
-            preds = preds.detach()
-            preds[idx_top1] += preds[idx_top2]
-            preds[idx_top2] = 0.0
-            labels = top_max_k_inds[:, 0]
+            ## take from https://github.com/eladb3/ORViT/blob/master/tools/train_net.py
+            is_dict_label = isinstance(labels, dict)
+            if is_dict_label:
+                dict_labels = labels
+                dict_preds = dict(zip(['verb', 'noun'], preds))
+            else:
+                dict_labels = {"class":labels}
+                dict_preds = {"class": preds}
+            for k,label in dict_labels.items():
+                preds = dict_preds[k]
+                _top_max_k_vals, top_max_k_inds = torch.topk(
+                    label, 2, dim=1, largest=True, sorted=True
+                )
+                idx_top1 = torch.arange(label.shape[0]), top_max_k_inds[:, 0]
+                idx_top2 = torch.arange(label.shape[0]), top_max_k_inds[:, 1]
+                preds = preds.detach()
+                preds[idx_top1] += preds[idx_top2]
+                preds[idx_top2] = 0.0
+                label = top_max_k_inds[:, 0]
+                dict_preds[k] = preds
+                dict_labels[k] = label
+            if is_dict_label:
+                labels = dict_labels
+                preds = [dict_preds[k] for k in ('verb', 'noun')]
+            else:
+                labels = dict_labels['class']
+                preds = dict_preds['class']
 
         if cfg.DETECTION.ENABLE:
             if cfg.NUM_GPUS > 1:
@@ -396,7 +423,6 @@ def eval_epoch(
 
     for cur_iter, (inputs, labels, index, meta) in enumerate(val_loader):
         time = 0.0
-        meta = {}
         if cfg.NUM_GPUS:
             # Transferthe data to the current GPU device.
             if isinstance(inputs, (list,)):
@@ -405,11 +431,15 @@ def eval_epoch(
             else:
                 inputs = inputs.cuda(non_blocking=True)
                 
-            labels = labels if isinstance(labels, (dict,)) else labels.cuda()
+            if isinstance(labels, (dict,)):
+                labels = {k: v.cuda() for k, v in labels.items()}
+            else:
+                labels = labels.cuda()
             for key, val in meta.items():
                 if isinstance(val, (list,)):
                     for i in range(len(val)):
-                        val[i] = val[i].cuda(non_blocking=True)
+                        if not isinstance(val[i], (str,)):
+                            val[i] = val[i].cuda(non_blocking=True)
                 else:
                     meta[key] = val.cuda(non_blocking=True)
             # index = index.cuda()

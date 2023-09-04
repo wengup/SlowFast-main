@@ -22,7 +22,7 @@ from slowfast.models.utils import (
     round_width,
     validate_checkpoint_wrapper_import,
 )
-from slowfast.models.topk import PatchNet
+from slowfast.models.topk import PatchNet, SelectionNet
 from . import head_helper, operators, resnet_helper, stem_helper  # noqa
 from .build import MODEL_REGISTRY
 
@@ -908,7 +908,7 @@ class MViT(nn.Module):
         self.W = cfg.DATA.TRAIN_CROP_SIZE // self.patch_stride[2]
         # Prepare output.
         if cfg.TRAIN.DATASET == "Epickitchens":
-            num_classes = [8, 116]  # add epic-kitchens, [verb,noun]=[97,300]
+            num_classes = [97, 300]  # add epic-kitchens, [verb,noun]=[97,300]
         else:
             num_classes = cfg.MODEL.NUM_CLASSES
         embed_dim = cfg.MVIT.EMBED_DIM
@@ -991,13 +991,15 @@ class MViT(nn.Module):
         if self.drop_rate > 0.0:
             self.pos_drop = nn.Dropout(p=self.drop_rate)
 
-        # configs of STTS.
+        # configs of token selection
         # temporal
-        self.time_pruning_loc = cfg.MVIT.TIME_PRUNING_LOC
+        self.time_pruning_loc = cfg.MVIT.TIME_PRUNING_LOC  # STTS
+        self.temporal_loc = cfg.MVIT.TEMPORAL_LOC  # Temporal SelectionNet in i block
         time_left_ratio = cfg.MVIT.TIME_LEFT_RATIO
         time_score = cfg.MVIT.TIME_SCORE
         # spatial 
-        self.space_pruning_loc = cfg.MVIT.SPACE_PRUNING_LOC
+        self.space_pruning_loc = cfg.MVIT.SPACE_PRUNING_LOC  # STTS
+        self.spatial_loc = cfg.MVIT.SPATIAL_LOC  # Spatial SelectionNet in i block
         space_left_ratio = cfg.MVIT.SPACE_LEFT_RATIO
         space_score = cfg.MVIT.SPACE_SCORE
         # which block to insert
@@ -1006,6 +1008,8 @@ class MViT(nn.Module):
         # sigma is a hyper-parameter controlling the noise variance
         self.sigma_max = cfg.MVIT.SIGMA
         self.sigma = cfg.MVIT.SIGMA
+        # append the number of prompt tokens
+        self.num_prompt_tokens = cfg.MVIT.NUM_PROMPT
         # construct the selection blocks
         embedding_temporal_size = temporal_size // 2
         embedding_spatial_size = self.patch_dims[1] * self.patch_dims[2]
@@ -1156,6 +1160,23 @@ class MViT(nn.Module):
                     patchnet = PatchNet(score=space_score, k=left_patches, in_channels = embed_dim) 
                     space_score_predictor.append(patchnet)
                     embedding_spatial_size = left_patches
+                
+                
+                # Prompt-based Selection Network    
+                if self.temporal_loc is not None and i in self.temporal_loc:
+                    left_frames = int(embedding_temporal_size * time_left_ratio[t_count])
+                    t_count += 1
+                    selnet = SelectionNet(score=time_score, k=left_frames, in_channels = embed_dim,
+                                          num_prompt=self.num_prompt_tokens)
+                    time_score_predictor.append(selnet)
+                    embedding_temporal_size = left_frames
+                elif self.spatial_loc is not None and i in self.spatial_loc:
+                    left_tokens = int(embedding_spatial_size * space_left_ratio[s_count])
+                    s_count += 1
+                    selnet = SelectionNet(score=space_score, k=left_tokens, in_channels = embed_dim,
+                                          num_prompt=self.num_prompt_tokens)
+                    space_score_predictor.append(selnet)
+                    embedding_spatial_size = left_tokens
 
                 embed_dim = dim_out
 
@@ -1373,7 +1394,7 @@ class MViT(nn.Module):
             Ns = N // T # number of embedding patches
             for i, blk in enumerate(self.blocks):
                 # on/off the STTS block
-                if hasattr(self, 'time_score_predictor') and i in self.time_pruning_loc:
+                if hasattr(self, 'time_score_predictor') and i in (self.time_pruning_loc or self.temporal_loc):
                     if self.cls_embed_on:
                         cls_tokens, x = x[:, 0:1], x[:,1:]
                     
@@ -1386,7 +1407,7 @@ class MViT(nn.Module):
                 
                     thw = [T, H, W]
                         
-                if hasattr(self, 'space_score_predictor') and i in self.space_pruning_loc:
+                if hasattr(self, 'space_score_predictor') and i in (self.space_pruning_loc or self.spatial_loc):
                     if self.cls_embed_on:
                         cls_tokens, x = x[:, 0:1, :], x[:,1:]
                     # x.shape = [bs, left_t*14*14, c]

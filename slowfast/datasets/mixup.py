@@ -188,7 +188,10 @@ class MixUp:
             lam = 1.0
         else:
             raise NotImplementedError
-        target = mixup_target(
-            target, self.num_classes, lam, self.label_smoothing
-        )
+        if isinstance(target, dict):
+            target = {k:mixup_target(target[k], self.num_classes[k], lam, self.label_smoothing) for k in target}
+        else:
+            target = mixup_target(
+                target, self.num_classes, lam, self.label_smoothing
+            )
         return x, target

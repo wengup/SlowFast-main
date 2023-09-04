@@ -133,7 +133,7 @@ def perform_test(test_loader, model, test_meter, cfg, writer=None):
                 metadata = {'narration_id': []}
                 for i in range(len(meta)):
                     metadata['narration_id'].extend(meta[i]['narration_id'])  
-                metadata['narration_id'] = [int(x) if isinstance(x, str) else x for x in metadata['narration_id']]
+                # metadata['narration_id'] = [int(x) if isinstance(x, str) else x for x in metadata['narration_id']]
             else:
                 metadata = meta
                 verb_preds, verb_labels, video_idx = preds[0], labels['verb'], video_idx
@@ -268,7 +268,7 @@ def test(cfg):
                 == 0
             )
             if cfg.TEST.DATASET == 'Epickitchens':  #
-                num_classes = [8, 116]
+                num_classes = [97, 300]
                 test_meter = EPICTestMeter(
                     len(test_loader.dataset)
                     // (cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS),

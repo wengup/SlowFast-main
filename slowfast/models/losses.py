@@ -12,7 +12,7 @@ import torch.nn.functional as F
 # )
 
 # For error load the SoftTargetCrossEntropyLoss, defined it here
-class SoftTargetCrossEntropyLoss(nn.Module):
+class SoftTargetCrossEntropy(nn.Module):
     """
     Cross entropy loss with soft target.
     Refer to https://github.com/wangjk666/STTS, thanks.
@@ -24,7 +24,7 @@ class SoftTargetCrossEntropyLoss(nn.Module):
             reduction (str): specifies reduction to apply to the output. It can be
                 "mean" (default) or "none".
         """ 
-        super(SoftTargetCrossEntropyLoss, self).__init__()
+        super(SoftTargetCrossEntropy, self).__init__()
         self.reduction = reduction
 
     def forward(self, x, y):
@@ -91,9 +91,10 @@ _LOSSES = {
     "cross_entropy": nn.CrossEntropyLoss,
     "bce": nn.BCELoss,
     "bce_logit": nn.BCEWithLogitsLoss,
-    "soft_cross_entropy": partial(
-        SoftTargetCrossEntropyLoss, normalize_targets=False
-    ),
+    # "soft_cross_entropy": partial(
+    #     SoftTargetCrossEntropyLoss, normalize_targets=False
+    # ),
+    "soft_cross_entropy": SoftTargetCrossEntropy,
     "contrastive_loss": ContrastiveLoss,
     "mse": nn.MSELoss,
     "multi_mse": MultipleMSELoss,
