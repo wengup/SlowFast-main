@@ -11,7 +11,11 @@
             "program": "${workspaceFolder}/tools/run_net.py",
             "console": "integratedTerminal",
             "env": {
+<<<<<<< HEAD
                 "CUDA_VISIBLE_DEVICES": "5,6"
+=======
+                "CUDA_VISIBLE_DEVICES": "6,7"
+>>>>>>> 857e6de891297b3edcacb69afdd3ff81944be336
             },
             "args": [
                 "--cfg",

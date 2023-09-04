@@ -131,7 +131,11 @@ class PromptTransformer(nn.Module):
         
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = norm_layer(dim)
+<<<<<<< HEAD
         if num_tokens == 0:
+=======
+        if num_tokens is None:
+>>>>>>> 857e6de891297b3edcacb69afdd3ff81944be336
             mlp_hidden_dim = int(dim * mlp_ratio)
             self.mlp = MLP(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
         else:
@@ -159,7 +163,11 @@ class PromptTransformer(nn.Module):
         x_prompt = torch.cat((
                 # x[:, :1, :], # cls_token
                 self.prompt_dropout(self.prompt_embedding.expand(B, -1, -1)),
+<<<<<<< HEAD
                 x # x[:, 1:, :]
+=======
+                x[:, 1:, :]
+>>>>>>> 857e6de891297b3edcacb69afdd3ff81944be336
             ), dim=1)
         # (batch_size, n_prompt + n_patches, hidden_dim)
         return x_prompt
@@ -171,7 +179,11 @@ class PromptTransformer(nn.Module):
         x = x + self.drop_path(self.attn(self.norm1(x)))
         # x = x + self.drop_path(self.mlp(self.norm2(x)))
         x = x + self.drop_path(self.fc_layer(self.norm2(x)))
+<<<<<<< HEAD
         s = self.num_tokens if self.num_tokens is not None else 0
+=======
+        s = self.num_tokens - 1
+>>>>>>> 857e6de891297b3edcacb69afdd3ff81944be336
         scores = self.score_layer(x[:,s:,:]) # get the token scores
         return scores
 

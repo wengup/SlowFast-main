@@ -1396,7 +1396,7 @@ class MViT(nn.Module):
                 # on/off the STTS block
                 if hasattr(self, 'time_score_predictor') and i in (self.time_pruning_loc or self.temporal_loc):
                     if self.cls_embed_on:
-                        cls_tokens, x = x[:, 0:1], x[:,1:]
+                        cls_tokens, x = x[:, 0:1], x[:,1:] # x.shape=[bs,8*56*56,dim]
                     
                     x = self.time_score_predictor[t_count](x, 'time', Ns, T, self.sigma)
 
